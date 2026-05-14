@@ -37,8 +37,7 @@
 #           tags: ${{ steps.meta.outputs.tags }}
 #           labels: ${{ steps.meta.outputs.labels }}
 
-
-          name: Build and Push to AWS ECR
+name: Build and Push to AWS ECR
 
 on:
   push:
