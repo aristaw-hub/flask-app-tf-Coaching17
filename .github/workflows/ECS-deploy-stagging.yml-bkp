@@ -1,0 +1,68 @@
+name: Deploy to Staging Environment
+
+on:
+  push:
+    branches: 
+      - "staging"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY: flask-app-staging-ecr
+  ENVIRONMENT: staging
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set environment variables
+        run: |
+          echo "ECR_REGISTRY=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+          echo "ENV_TAG=staging-latest" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG .
+          echo "✅ Image built for Staging"
+
+      - name: Run additional tests for staging
+        run: |
+          echo "Running staging-specific tests..."
+          # Add your staging tests here
+          docker run --rm $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG python -m pytest tests/ -v
+          echo "✅ All staging tests passed"
+
+      - name: Tag images
+        run: |
+          docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:staging-latest
+          docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest
+          echo "✅ Images tagged"
+
+      - name: Push to ECR
+        run: |
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:staging-latest
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest
+          echo "✅ Pushed to Staging ECR"
+
+      - name: Verify push
+        run: |
+          echo "🎉 Staging deployment complete!"
+          echo "   Image: $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG"
