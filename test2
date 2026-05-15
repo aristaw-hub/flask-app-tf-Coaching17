@@ -1,0 +1,137 @@
+# ECR Module - Terraform
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+# ECR Repository
+resource "aws_ecr_repository" "this" {
+  name         = var.repository_name
+  force_delete = var.force_delete
+  
+  image_scanning_configuration {
+    scan_on_push = var.scan_on_push
+  }
+  
+  # Lifecycle policy for image cleanup
+  dynamic "lifecycle_policy" {
+    for_each = var.lifecycle_policy_enabled ? [1] : []
+    content {
+      policy = jsonencode({
+        rules = [
+          {
+            rulePriority = 1
+            description  = "Keep last ${var.keep_last_images} images"
+            selection = {
+              tagStatus     = "any"
+              countType     = "imageCountMoreThan"
+              countNumber   = var.keep_last_images
+            }
+            action = {
+              type = "expire"
+            }
+          },
+          {
+            rulePriority = 2
+            description  = "Remove untagged images older than ${var.max_image_age_days} days"
+            selection = {
+              tagStatus     = "untagged"
+              countType     = "sinceImagePushed"
+              countUnit     = "days"
+              countNumber   = var.max_image_age_days
+            }
+            action = {
+              type = "expire"
+            }
+          }
+        ]
+      })
+    }
+  }
+  
+  # Repository policy for cross-account access (optional)
+  dynamic "repository_policy" {
+    for_each = var.repository_policy != null ? [1] : []
+    content {
+      policy = var.repository_policy
+    }
+  }
+  
+  tags = merge(var.tags, {
+    Name        = var.repository_name
+    Environment = var.environment
+  })
+}
+
+# ECR Repository Permissions (for GitHub Actions)
+resource "aws_ecr_repository_policy" "github_actions" {
+  count      = var.allow_github_actions ? 1 : 0
+  repository = aws_ecr_repository.this.name
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "GitHubActionsPush"
+        Effect = "Allow"
+        Principal = {
+          AWS = var.github_actions_role_arn
+        }
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload"
+        ]
+      }
+    ]
+  })
+}
+
+# Lifecycle policy for untagged images
+resource "aws_ecr_lifecycle_policy" "untagged" {
+  count      = var.lifecycle_policy_enabled && var.cleanup_untagged_images ? 1 : 0
+  repository = aws_ecr_repository.this.name
+  
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Remove untagged images after ${var.untagged_image_retention_days} days"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = var.untagged_image_retention_days
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
+# Outputs
+output "repository_url" {
+  description = "ECR repository URL"
+  value       = aws_ecr_repository.this.repository_url
+}
+
+output "repository_arn" {
+  description = "ECR repository ARN"
+  value       = aws_ecr_repository.this.arn
+}
+
+output "repository_name" {
+  description = "ECR repository name"
+  value       = aws_ecr_repository.this.name
+}

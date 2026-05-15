@@ -1,0 +1,9 @@
+aws_region   = "ap-southeast-1"
+project_name = "flask-app"
+environment  = "staging"
+vpc_id      = "vpc-09e68bf2108bdf122"
+subnet_ids  = ["subnet-00a54cae228ee1732", "subnet-0e44557b9401fd38b", "subnet-00eb3ade335259f01"]
+container_port = 8080
+task_cpu       = 512
+task_memory    = 1024
+desired_count  = 2
