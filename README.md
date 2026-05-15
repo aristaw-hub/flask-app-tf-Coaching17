@@ -416,31 +416,6 @@ PUBLIC_IP=$(aws ecs describe-tasks --cluster $(terraform output -raw ecs_cluster
 echo "Application URL: http://$PUBLIC_IP:8080"
 ```
 
----
-
-**Happy Deploying! 🚀**
-EOF
-
-# Verify the file was created
-ls -lah README.md
-head -20 README.md
-```
-
-Now let's add and commit the README:
-
-```bash
-cd /home/sus/flask-app-tf-Coaching17
-
-# Add README to git
-git add README.md
-
-# Commit
-git commit -m "Add comprehensive README.md documentation"
-
-# Push to GitHub
-git push origin main
-```
-
 The README includes:
 - Project overview and architecture
 - Repository structure
