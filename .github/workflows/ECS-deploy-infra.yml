@@ -8,15 +8,15 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - staging
-          - prod
+  #    environment:
+  #      description: 'Environment'
+  #      required: true
+  #      default: 'dev'
+  #      type: choice
+  #     options:
+  #        - dev
+  #        - staging
+  #        - prod
 
 jobs:
   terraform:
